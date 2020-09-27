@@ -1,0 +1,207 @@
+---
+title: "week5"
+author: "Arushi Arora"
+date: "9/22/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+---
+
+#### Importing libraries
+```{r warning=FALSE}
+library(RMySQL)
+library(tidyr)
+```
+
+###### Suppressing dplyr warnings
+```{r warning=FALSE}
+# https://rstats-tips.net/2020/07/31/get-rid-of-info-of-dplyr-when-grouping-summarise-regrouping-output-by-species-override-with-groups-argument/
+library(dplyr, warn.conflicts = FALSE) # for cleaning the data
+
+# Suppress summarise info
+options(dplyr.summarise.inform = FALSE)
+library(ggplot2)  # for plotting the data
+```
+
+#### Input Data
+```{r}
+knitr::include_graphics('https://raw.githubusercontent.com/Araisedtotwo/Assignment4/master/images/input.png')
+```
+
+---
+
+- A CSV file and MySQL table were created with the above shown table headers
+
+---
+
+#### Reading Data from CSV
+```{r}
+# Reading csv (https://www.tutorialspoint.com/r/r_csv_files.htm)
+raw_data <- read.csv("https://raw.githubusercontent.com/Araisedtotwo/Assignment4/master/airlines_untidy.csv", header = TRUE)
+print(raw_data)
+```
+
+
+#### Formatting the data for analysis
+- Making the  data tidy
+```{r}
+# rename columns - Ref : vignette("dplyr",package="dplyr")
+raw_data = rename(raw_data, "Airline" = "X", "Status" = "X.1")
+
+# removing extra row
+# https://stackoverflow.com/questions/12328056/how-do-i-delete-rows-in-a-data-frame
+raw_data <- raw_data[-c(3), ]
+
+# filling columns values
+raw_data[2,1] <- "ALASKA"
+raw_data[4,1] <- "AM WEST"
+raw_data
+```
+
+#### Creating AWS MySQL Connection & Reading Data from MySQL
+```{r}
+mysqlconnection = dbConnect(MySQL(), user='root', password='Arushi1994', dbname ='aws_movie_ratings',host='aws-movie-rating.cc7r4c0owv8u.us-east-1.rds.amazonaws.com')
+result = dbSendQuery(mysqlconnection,"SELECT `Airline`, `Status`, `Los.Angeles`, `Phoenix`, `San.Diego`, `San.Francisco`, `Seattle` FROM aws_airlines.delay_status")
+raw_data_2=fetch(result)
+(raw_data_2)
+```
+
+---
+
+#### Here, raw_data(CSV) and raw_data2(MySQL) are both same, either can be used for further analysis. We choose MySQL one
+
+---
+
+#### Converting data between wide and long format
+###### gather() and spread()
+```{r}
+# http://www.cookbook-r.com/Manipulating_data/Converting_data_between_wide_and_long_format/
+# gather() and spread()      https://www.youtube.com/watch?v=XRd2E-F0IGE
+# x %>% f(y) turns into f(x, y) - vignette("dplyr",package="dplyr")
+```
+
+###### gather() and spread() now replaced with pivot_longer() and pivot_wider() in new versions of dplyr
+```{r}
+# pivot functions :https://www.youtube.com/watch?v=gnUgSkKEW5c
+# vignette("pivot")
+raw_data_2 <- pivot_longer(raw_data_2,c(Los.Angeles,Phoenix,San.Diego,San.Francisco,Seattle),names_to = "Destination", values_to = "Count")
+
+# Let us sort data by destination 
+raw_data_2 <- raw_data_2 %>%
+  arrange(Destination, Airline)
+
+raw_data_2 <- transform(raw_data_2, Count = as.numeric(Count))
+print(raw_data_2)
+```
+#### Visualizing the flight delays for each state (Plot 1)
+```{r}
+
+
+
+ggplot(
+  filter(raw_data_2, Status=="delayed"),
+  aes(Destination, Count, color=Airline ))+
+  geom_point(size=5)+
+  ggtitle("All Delayed Flights")+
+  ylab("Delays")
+
+
+
+```
+
+```{r}
+ggplot(
+  filter(raw_data_2, Status=="on time"),
+  aes(Destination, Count, color=Airline ))+
+  geom_point(size=5)+
+  ggtitle("All On Time Flights")+
+  ylab("On Time Flight Count")
+
+```
+
+#### Compare the per-city on-time performance for both airlines
+
+- While the AM west airline was on-time for Los Angeles, Phoenix & San Diego, San Francisco & Seatle has more number of delays with AM West over Alaska Airlines
+
+##### Converting to wider format (Breaking the `on time` and `delayed` flights)
+```{r}
+# pivot_wider -> https://tidyr.tidyverse.org/reference/pivot_wider.html
+raw_data_2 <- pivot_wider(raw_data_2,id_cols = c(Airline, Destination),names_from = Status, values_from=Count)
+raw_data_2 <- rename(raw_data_2, "on_time" = "on time")
+
+# https://stackoverflow.com/questions/2288485/how-to-convert-a-data-frame-column-to-numeric-type
+raw_data_2 <- transform(raw_data_2, on_time = as.numeric(on_time), 
+               delayed = as.numeric(delayed))
+print(raw_data_2)
+```
+#### Summarizing Data
+```{r, warning=FALSE}
+summary <- raw_data_2 %>% 
+  group_by(Airline) %>% 
+  summarize(total_delayed = sum(delayed), total_on_time = sum(on_time)) %>% 
+  mutate(total_flights = total_delayed + total_on_time, percent_delayed = round(total_delayed/total_flights * 100, 2),
+         percent_on_time = round(total_on_time/total_flights * 100, 2))
+
+summary
+```
+
+---
+
+#### Analyzing the overall Percentage in Delays of the 2 Airlines (Plot 2)
+```{r}
+# http://www.sthda.com/english/wiki/ggplot2-barplots-quick-start-guide-r-software-and-data-visualization
+plot3 <- ggplot(summary, aes(Airline, percent_delayed)) + 
+  geom_bar(aes(fill = Airline), position = "dodge", stat = "identity") + 
+  geom_text(aes(label = percent_delayed), vjust = -.3) +
+  ylab("Percentage of Delayed Flights") +
+  ggtitle("Total Percentage of Delayed Flights by Airline")
+
+plot3
+```
+
+
+
+---
+
+#### From the figure above, we can say that `Alaska airline` flights are usually `more delayed` than AM West flights
+
+---
+```{r}
+# http://www.sthda.com/english/wiki/ggplot2-barplots-quick-start-guide-r-software-and-data-visualization
+plot4 <- ggplot(summary, aes(Airline, percent_on_time)) + 
+  geom_bar(aes(fill = Airline), position = "dodge", stat = "identity") + 
+  geom_text(aes(label = percent_on_time), vjust = -.3) +
+  ylab("Percentage of On Time Flights") +
+  ggtitle("Total Percentage of On Time Flights by Airline")
+
+plot4
+```
+
+
+
+---
+#### Overall on-time performance for both airlines
+- From the figure above, we can say that `AM West` flights are usually more `on-time` than Alaska airline flights
+
+---
+
+#### Apparent discrepancy between the per-city and overall performances
+- While AM West has higher chances of having flights on time, but in San Francisco & Seattle, the Alaska airlines had higher number of on-time flights than AM West
+
+---
+
+#### Paradoxical conclusion
+- As seen from the above Per City On-Time comparison visualization, AM West was flying significantly higher number of flights in Pheonix. This lead led to erroneous conclusion that AM West flights has higher chances of being on time. Instead, the have nearly equal chances of having on-time flights with the exception of Seattle
+
+
+#### Closing MySQL Connection
+```{r}
+# https://stackoverflow.com/questions/17509970/closing-active-connections-using-rmysql
+ile <- length(dbListConnections(MySQL())  )
+lapply( dbListConnections(MySQL()), function(x) dbDisconnect(x) )
+cat(sprintf("%s connection(s) closed.\n", ile))
+```
