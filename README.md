@@ -96,7 +96,9 @@ raw_data
 ![](images/DB_import.png)
 
 #### Preparing Data
+
 - Transformation 1
+
 ```
 raw_data_2 <- pivot_longer(raw_data_2,c(Los.Angeles,Phoenix,San.Diego,San.Francisco,Seattle),names_to = "Destination", values_to = "Count")
 

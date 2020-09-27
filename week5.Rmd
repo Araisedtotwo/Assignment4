@@ -64,7 +64,7 @@ raw_data
 
 #### Creating AWS MySQL Connection & Reading Data from MySQL
 ```{r}
-mysqlconnection = dbConnect(MySQL(), user='root', password='Arushi1994', dbname ='aws_movie_ratings',host='aws-movie-rating.cc7r4c0owv8u.us-east-1.rds.amazonaws.com')
+mysqlconnection = dbConnect(MySQL(), user='root', password='xxxx', dbname ='aws_movie_ratings',host='aws-movie-rating.cc7r4c0owv8u.us-east-1.rds.amazonaws.com')
 result = dbSendQuery(mysqlconnection,"SELECT `Airline`, `Status`, `Los.Angeles`, `Phoenix`, `San.Diego`, `San.Francisco`, `Seattle` FROM aws_airlines.delay_status")
 raw_data_2=fetch(result)
 (raw_data_2)
