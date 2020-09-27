@@ -99,6 +99,8 @@ raw_data
 
 - Transformation 1
 
+(1)
+
 ```
 raw_data_2 <- pivot_longer(raw_data_2,c(Los.Angeles,Phoenix,San.Diego,San.Francisco,Seattle),names_to = "Destination", values_to = "Count")
 
@@ -111,8 +113,13 @@ raw_data_2 <- transform(raw_data_2, on_time = as.numeric(on_time),
                delayed = as.numeric(delayed))
 
 ```
+
 ![](images/transformation_1.png)
+
 - Transformation 2
+
+(2)
+
 ```
 summary <- raw_data_2 %>% 
   group_by(Airline) %>% 
